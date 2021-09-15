@@ -76,28 +76,29 @@ requires()
     return ${ret}
 }
 
-# Runs a command in a ticker, capturing its output and hiding it behind a
-# single line. If the command successfully runs, then a checkbox is printed,
-# otherwise a red X is printed.
-ticker()
+# Progress acts almost identically to ticker, but takes a second callback
+# argument used to determine the progress overall (returning a percentage
+# between 0 and 1).
+progress()
 {
     local cmd="${1}"
-    shift
+    local callback="${2}"
+    shift 2
 
     (
         trap - ERR
 
         local start=${SECONDS}
-        local current=${start}
         local delta=0
         local cols=
         local spinner=(— \\ \| /)
         local spin=
+        local pct=0
+        local span=0
 
         while [[ 0 == 0 ]]; do
             cols=$(tput cols)
-            current=${SECONDS}
-            delta=$(( ${current} - ${start} ))
+            delta=$(( ${SECONDS} - ${start} ))
             spin=${spinner[$(( ${delta} % ${#spinner[@]} ))]}
 
             # NOTE: Leaving the cursor at the end of the line means that we
@@ -105,7 +106,25 @@ ticker()
             #       disable the cursor from showing up. So it works nicer in
             #       error-cases where we may die (or be killed) without being
             #       able to re-enable the cursor first.
-            printf "\r$(tput bold)[%s]$(tput sgr0) %-$(( ${cols} - 15 ))s $(tput bold)[%02d:%02d:%02d]$(tput sgr0)" "${spin}" "${@}" $(( ${delta} / 3600 )) $(( (${delta} % 3600) / 60 )) $(( ${delta} % 60 ))
+            if [[ -z "${callback}" ]]; then
+                printf "\r$(tput bold)[%s]$(tput sgr0) %-$(( ${cols} - 15 ))s $(tput bold)[%02d:%02d:%02d]$(tput sgr0)" \
+                    "${spin}" \
+                    "${@}" \
+                    $(( ${delta} / 3600 )) \
+                    $(( (${delta} % 3600) / 60 )) \
+                    $(( ${delta} % 60 ))
+            else
+                pct=$(${callback})
+                span=$(echo "scale = 2; val = (${cols} - 15 - 1) * ${pct}; scale = 0; 1 + val / 1" | bc)
+                printf "\r$(tput bold)[%s]$(tput sgr0) $(tput rev)%-${span}s$(tput sgr0)%-$(( ${cols} - 15 - ${span} ))s $(tput bold)[%02d:%02d:%02d]$(tput sgr0)" \
+                    "${spin}" \
+                    "$(echo "${@}" | cut -c 1-${span})" \
+                    "$(echo "${@}" | cut -c $(( ${span} + 1 ))-)" \
+                    $(( ${delta} / 3600 )) \
+                    $(( (${delta} % 3600) / 60 )) \
+                    $(( ${delta} % 60 ))
+            fi
+
             sleep 1
         done
     ) &
@@ -148,4 +167,17 @@ ticker()
 
     closeTicker ${rc}
     return ${rc}
+
+}
+
+# Runs a command in a ticker, capturing its output and hiding it behind a
+# single line. If the command successfully runs, then a checkbox is printed,
+# otherwise a red X is printed.
+ticker()
+{
+    local cmd="${1}"
+    shift
+
+    progress "${cmd}" "" "${@}"
+    return $?
 }
