@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+source ./bin/utils.sh
+
+shopt -s globstar
+
+playSong()
+{
+    local song="${@}"
+    aplay "${song}"
+}
+
+album="${1}"
+for song in "${album}"/**/*.wav; do
+    ticker "playSong ${song}" "Now playing: ${song}"
+done
