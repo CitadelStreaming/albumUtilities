@@ -1,9 +1,11 @@
 #!/bin/bash
 
+shopt -s globstar
+
 album="${1}"
 s=0
 
-for l in "${album}"/*.wav; do
+for l in "${album}"/**/*.wav; do
     s=$(( ${s} + $(soxi -D "${l}" | cut -d. -f1) ))
 done
 
