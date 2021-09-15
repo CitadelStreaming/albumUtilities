@@ -1,0 +1,11 @@
+#!/bin/bash
+
+album="${1}"
+s=0
+
+for l in "${album}"/*.wav; do
+    s=$(( ${s} + $(soxi -D "${l}" | cut -d. -f1) ))
+done
+
+m=$(( ${s} / 60 ))
+echo "${album} is about ${s} seconds (${m}:$(( ${s} - ( ${m} * 60 ) ))) long";
