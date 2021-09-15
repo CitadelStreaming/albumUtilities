@@ -4,20 +4,34 @@ source ./bin/utils.sh
 
 shopt -s globstar
 
-requires bc aplay soxi cut || die "Required applications are not installed"
+requires \
+    aplay \
+    bc \
+    cut \
+    grep \
+    pactl \
+    rm \
+    soxi \
+    || die "Required applications are not installed"
 
 percentComplete()
 {
     local start=${1}
     local duration=${2}
+    local pausedTime=$(wc -l /tmp/albumPlayPausedTime | cut -d' ' -f1)
 
-    echo "scale = 2; (${SECONDS} - ${start}) / ${duration}" | bc 
+    if pactl list sink-inputs | grep aplay -B20 | grep -q "Corked: yes"; then
+        echo "Paused" >> /tmp/albumPlayPausedTime
+        pausedTime=$(( ${pausedTime} + 1 ))
+    fi
+
+    echo "scale = 2; pct=(${SECONDS} - ${start} - ${pausedTime}) / ${duration}; if (pct > 1) { 1 } else { pct }" | bc
 }
 
 playSong()
 {
     local song="${@}"
-    aplay "${song}"
+    aplay -i "${song}"
 }
 
 while [[ -n "${@}" ]]; do
@@ -26,11 +40,15 @@ while [[ -n "${@}" ]]; do
 
     if [[ -d "${album}" ]]; then
         for song in "${album}"/**/*.wav; do
+            echo -n "" > /tmp/albumPlayPausedTime
             songDuration=$(soxi -D "${song}" | cut -d. -f1)
             progress "playSong ${song}" "percentComplete ${SECONDS} ${songDuration}" "Now playing: ${song}"
         done
     elif [[ -f "${album}" ]]; then
+        echo -n "" > /tmp/albumPlayPausedTime
         songDuration=$(soxi -D "${album}" | cut -d. -f1)
         progress "playSong ${album}" "percentComplete ${SECONDS} ${songDuration}" "Now playing: ${album}"
     fi
 done
+
+rm -f /tmp/albumPlayPausedTime
