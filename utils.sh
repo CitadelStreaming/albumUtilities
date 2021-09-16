@@ -95,11 +95,25 @@ progress()
         local spin=
         local pct=0
         local span=0
+        local textLength=$(echo -n "${@}" | wc -c)
+        local trimStart=
+        local midpoint=
+        local text=""
 
         while [[ 0 == 0 ]]; do
             cols=$(tput cols)
             delta=$(( ${SECONDS} - ${start} ))
             spin=${spinner[$(( ${delta} % ${#spinner[@]} ))]}
+
+            if [[ ${cols} -lt 18 ]]; then
+                text=""
+            elif [[ $(( ${textLength} + 15 )) -gt ${cols} ]]; then
+                midpoint=$(( (${cols} - 15) / 2 ))
+                trimStart=$(( ${textLength} - ${midpoint} + 1 ))
+                text="$(echo "${@}" | cut -c 1-$(( ${midpoint} - 3 )))...$(echo "${@}" | cut -c ${trimStart}-)"
+            else
+                text="${@}"
+            fi
 
             # NOTE: Leaving the cursor at the end of the line means that we
             #       don't have annoying flashing while also not having to
@@ -109,7 +123,7 @@ progress()
             if [[ -z "${callback}" ]]; then
                 printf "\r$(tput bold)[%s]$(tput sgr0) %-$(( ${cols} - 15 ))s $(tput bold)[%02d:%02d:%02d]$(tput sgr0)" \
                     "${spin}" \
-                    "${@}" \
+                    "${text}" \
                     $(( ${delta} / 3600 )) \
                     $(( (${delta} % 3600) / 60 )) \
                     $(( ${delta} % 60 ))
@@ -118,8 +132,8 @@ progress()
                 span=$(echo "scale = 2; val = (${cols} - 15 - 1) * ${pct}; scale = 0; 1 + val / 1" | bc)
                 printf "\r$(tput bold)[%s]$(tput sgr0) $(tput rev)%-${span}s$(tput sgr0)%-$(( ${cols} - 15 - ${span} ))s $(tput bold)[%02d:%02d:%02d]$(tput sgr0)" \
                     "${spin}" \
-                    "$(echo "${@}" | cut -c 1-${span})" \
-                    "$(echo "${@}" | cut -c $(( ${span} + 1 ))-)" \
+                    "$(echo "${text}" | cut -c 1-${span})" \
+                    "$(echo "${text}" | cut -c $(( ${span} + 1 ))-)" \
                     $(( ${delta} / 3600 )) \
                     $(( (${delta} % 3600) / 60 )) \
                     $(( ${delta} % 60 ))
