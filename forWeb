@@ -1,0 +1,72 @@
+#!/bin/bash
+
+source ./bin/utils.sh
+
+#
+# This script will take a given album directory (1 album at a time), and a
+# destination directory, and convert all .wav files found in the album
+# directory to mp3 (downsampling to 44100 Hz), constructing a folder under the
+# destination in the following form:
+# 
+# NOTE: / in this case indicates the root of the destination directory,
+#       provided by the user.
+# 
+# /src/assets/albums/####/01-slug-song-name.mp3
+# /src/assets/albums/####/02-slug-song-name.mp3
+# /src/assets/albums/####/03-slug-song-name.mp3
+# /src/assets/albums/####/...-slug-song-name.mp3
+# /src/assets/albums/####/##-slug-song-name.mp3
+# 
+# Album (the first argument to the script), must be a directory named in the
+# following form:
+# ##### some title here
+# 
+# The number in the beginning of the album title will be extracted and be used
+# as the destination directory number.
+#
+
+function slugify()
+{
+    local f="${1}"
+    echo -n "${f}" | sed -e "s/[\"\'.~!@#$%^&**()_+=? ]/-/g" | sed -e "s/-+/-/g" | tr "[:upper:]" "[:lower:]"
+}
+
+function convertWav()
+{
+    local src="${1}"
+    local dest="${2}"
+
+    log "Moving ${src} to ${dest}"
+    ffmpeg -i "${src}" -map_metadata -1 -ar 44100 "${dest}"
+}
+
+
+album="${1}"
+albumName="$(basename "${album}")"
+destination="${2}"
+albumNumber="00"
+
+if [[ "${albumName}" =~ ^([0-9]{2,}) ]]; then
+    albumNumber="${BASH_REMATCH[0]}"
+else
+    die "Invalid album name: ${albumName}, expected to start with a number!"
+fi
+
+[[ -d "${album}" && -d "${destination}" ]] || die "Album source and destination must be directories!"
+
+dest="${destination}/src/assets/albums/${albumNumber}"
+mkdir -p "${dest}"
+
+IFS='
+'
+for f in $(find "${album}" -type f -a -name '*.wav'); do
+    destSong="${dest}/$(slugify "$(basename "${f}" .wav)").mp3"
+
+    if [[ ! -f "${destSong}" ]]; then
+        convertWav "${f}" "${destSong}"
+    fi
+done
+
+if [[ -f "${album}/metadata.new.json" ]]; then
+    cp "${album}/metadata.new.json" "${dest}/metadata.json"
+fi
