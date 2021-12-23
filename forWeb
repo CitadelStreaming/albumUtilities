@@ -28,7 +28,7 @@ source ./bin/utils.sh
 function slugify()
 {
     local f="${1}"
-    echo -n "${f}" | sed -e "s/[\"\'.~!@#$%^&**()_+=? ]/-/g" | sed -e "s/-+/-/g" | tr "[:upper:]" "[:lower:]"
+    echo -n "${f}" | sed -e "s/[\"\'.,~!@#$%^&**()_+=? ]/-/g" | sed -e "s/-+/-/g" | tr "[:upper:]" "[:lower:]"
 }
 
 function convertWav()
